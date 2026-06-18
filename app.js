@@ -54,7 +54,7 @@ const STORAGE_OVERRIDES_KEY = 'food_map_overrides';
 const STORAGE_COORDS_OVERRIDES_KEY = 'food_map_coords_overrides';
 
 // Default CSV path (pointing directly to your live Google Sheet)
-const DEFAULT_CSV_PATH = 'https://docs.google.com/spreadsheets/d/1Kxl_tLb3vDVVk4AAAW4n7qm_OWE5d9YCU6AMttpnAvQ/export?format=csv';
+const DEFAULT_CSV_PATH = 'https://docs.google.com/spreadsheets/d/1lFwtpIbqd7cvGxoc0emB41D2kHRcw_-c01YYXAzAXM4/export?format=csv';
 const DEFAULT_COORDS_PATH = 'coords_db.json';
 
 // Hardcoded Google Apps Script Web App API URL (for phone-to-sheet sync)
