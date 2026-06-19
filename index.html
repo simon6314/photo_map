@@ -290,50 +290,72 @@
 // 部署步驟：
 // 1. 打開您的 Google 試算表，點選「擴充功能」➔「Apps Script」。
 // 2. 將此程式碼全部貼入程式碼編輯器中，覆蓋原本內容。
-// 3. 點選右上角「部署」➔「新增部署」。
-// 4. 類型選擇「網頁應用程式」，「誰有存取權」選擇「任何人」（Anyone）。
-// 5. 複製產生的「網頁應用程式網址」，貼在下方的 API 欄位中！
+// 3. 在上方選擇「testAuthorization」函數並點選「執行」，這會彈出授權視窗，請完成授權！(非常重要)
+// 4. 點選右上角「部署」➔「管理部署」。
+// 5. 點選編輯（筆的圖示），在「版本」下拉選單中選擇「新版本」，然後點選「部署」。
+// 6. 複製產生的「網頁應用程式網址」，貼在下方的 API 欄位中！
 
 const FOLDER_ID = '1DubgqnsPUdZ5fqXvcByf-2qkzVMxT1zJ'; // 您的 Google Drive 指定資料夾 ID
 
-function doGet(e) {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
-  var rows = sheet.getDataRange().getValues();
-  var headers = rows[0];
-  var data = [];
-  
-  var dateIdx = headers.indexOf('時間');
-  var locIdx = headers.indexOf('地點');
-  var foodIdx = headers.indexOf('餐廳/美食');
-  var latIdx = headers.indexOf('緯度');
-  if (latIdx === -1) latIdx = headers.indexOf('Latitude');
-  var lngIdx = headers.indexOf('經度');
-  if (lngIdx === -1) lngIdx = headers.indexOf('Longitude');
-  var photoIdx = headers.indexOf('相片');
-  if (photoIdx === -1) photoIdx = headers.indexOf('Photo');
-  
-  for (var i = 1; i < rows.length; i++) {
-    var row = rows[i];
-    if (!row[0]) continue;
-    
-    data.push({
-      index: i - 1,
-      date: formatDate(row[dateIdx]),
-      location: String(row[locIdx] || ''),
-      food: String(row[foodIdx] || ''),
-      lat: row[latIdx] ? parseFloat(row[latIdx]) : '',
-      lng: row[lngIdx] ? parseFloat(row[lngIdx]) : '',
-      photo: photoIdx !== -1 ? String(row[photoIdx] || '') : ''
-    });
+// 測試用函數：手動執行此函數來啟動 Google Drive 授權 popup
+function testAuthorization() {
+  console.log("正在測試連接資料夾，ID: " + FOLDER_ID);
+  try {
+    var folder = DriveApp.getFolderById(FOLDER_ID);
+    console.log("【授權成功】成功連接到資料夾！名稱為：" + folder.getName());
+  } catch(e) {
+    console.error("【授權失敗】連接資料夾時出錯：" + e.toString());
+    throw e;
   }
-  
-  return ContentService.createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet(e) {
+  try {
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+    var rows = sheet.getDataRange().getValues();
+    var headers = rows[0];
+    var data = [];
+    
+    var dateIdx = headers.indexOf('時間');
+    var locIdx = headers.indexOf('地點');
+    var foodIdx = headers.indexOf('餐廳/美食');
+    var latIdx = headers.indexOf('緯度');
+    if (latIdx === -1) latIdx = headers.indexOf('Latitude');
+    var lngIdx = headers.indexOf('經度');
+    if (lngIdx === -1) lngIdx = headers.indexOf('Longitude');
+    var photoIdx = headers.indexOf('相片');
+    if (photoIdx === -1) photoIdx = headers.indexOf('Photo');
+    
+    for (var i = 1; i < rows.length; i++) {
+      var row = rows[i];
+      if (!row[0]) continue;
+      
+      data.push({
+        index: i - 1,
+        date: formatDate(row[dateIdx]),
+        location: String(row[locIdx] || ''),
+        food: String(row[foodIdx] || ''),
+        lat: row[latIdx] ? parseFloat(row[latIdx]) : '',
+        lng: row[lngIdx] ? parseFloat(row[lngIdx]) : '',
+        photo: photoIdx !== -1 ? String(row[photoIdx] || '') : ''
+      });
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify(data))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    console.error("doGet 發生錯誤: " + err.toString());
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: err.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 function doPost(e) {
+  console.log("收到 doPost 請求！");
   try {
     var params = JSON.parse(e.postData.contents);
+    console.log("請求參數: action=" + params.action + ", date=" + params.date + ", location=" + params.location + ", food=" + params.food);
+    
     var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
     var action = params.action;
     
@@ -342,12 +364,17 @@ function doPost(e) {
     if (photoColIdx === -1) photoColIdx = headers.indexOf('Photo');
     if (photoColIdx === -1) {
       sheet.getRange(1, 7).setValue('相片');
-      photoColIdx = 6;
+      photoColIdx = 6; // index 6 is column 7
+      console.log("試算表中未找到相片欄位，已自動在第 7 欄建立");
     }
     
     var photoUrl = params.photo || '';
     if (params.photoBase64 && FOLDER_ID) {
+      console.log("偵測到 Base64 相片資料，正在上傳至 Google Drive...");
       photoUrl = uploadToGoogleDrive(params.photoBase64, params.photoName || 'photo.jpg');
+      console.log("相片上傳成功，網址: " + photoUrl);
+    } else {
+      console.log("未偵測到 Base64 相片，photoUrl=" + photoUrl);
     }
     
     var dateVal = params.date || '';
@@ -358,14 +385,17 @@ function doPost(e) {
     var fullAddressVal = locationVal + ' ' + (foodVal ? foodVal.split(/[，,]/)[0].replace(/（[^）]*）/g, '') : '');
     
     if (action === 'add') {
+      console.log("執行新增 (add) 動作...");
       var newRow = [dateVal, locationVal, foodVal, fullAddressVal, latVal, lngVal];
       while (newRow.length < photoColIdx) {
         newRow.push('');
       }
       newRow[photoColIdx] = photoUrl;
       sheet.appendRow(newRow);
+      console.log("新增資料列完成！");
       
     } else if (action === 'edit') {
+      console.log("執行編輯 (edit) 動作，索引=" + params.index);
       var rowIndex = params.index + 2;
       sheet.getRange(rowIndex, 1).setValue(dateVal);
       sheet.getRange(rowIndex, 2).setValue(locationVal);
