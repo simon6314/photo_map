@@ -208,6 +208,27 @@
                     <span class="form-help">格式為：緯度, 經度 (例如：24.6853, 120.8753)。點擊右上角「🔍 搜尋線上定位」，能根據您輸入的地區和餐廳名稱，線上自動尋找最精準的經緯度座標！</span>
                 </div>
                 
+                <div class="form-group">
+                    <label>上傳相片 (選填)</label>
+                    <div class="photo-upload-container">
+                        <div id="photo-drag-zone" class="photo-upload-zone">
+                            <i data-lucide="camera"></i>
+                            <span>拖曳相片至此，或點擊選擇檔案</span>
+                            <input type="file" id="form-photo-file" accept="image/*" class="hidden">
+                        </div>
+                        <input type="url" id="form-photo-url" placeholder="或貼上外部相片網址 (例如 https://...)">
+                        <input type="hidden" id="form-photo-data" value="">
+                        
+                        <div id="form-photo-preview-container" class="photo-preview-container hidden">
+                            <button type="button" id="btn-remove-photo" class="btn-delete-photo" title="刪除相片">
+                                <i data-lucide="trash-2"></i>
+                            </button>
+                            <img id="form-photo-preview" class="photo-preview" src="">
+                        </div>
+                    </div>
+                    <span class="form-help">您可以上傳本機相片（系統會等比縮放壓縮以利上傳至您的 Google Drive 指定資料夾），或貼上外部相片 URL。</span>
+                </div>
+                
                 <div class="form-actions">
                     <button type="button" id="btn-cancel-card" class="btn btn-secondary">取消</button>
                     <button type="submit" class="btn btn-primary">儲存足跡</button>
@@ -251,6 +272,146 @@
                         <span class="form-help">設定此網址後，手機端新增足跡會【直接即時寫入】您的 Google 試算表，地圖也會自動即時更新！</span>
                     </div>
                     
+                    <!-- Collapsible Google Apps Script Instructions and Code -->
+                    <div class="gas-code-accordion" id="gas-accordion">
+                        <div class="gas-code-accordion-title" id="gas-accordion-toggle">
+                            <span>🛠️ 檢視支援相片上傳的最新 Google Apps Script 程式碼</span>
+                            <i data-lucide="chevron-down"></i>
+                        </div>
+                        <div class="gas-code-accordion-content">
+                            <p style="margin-bottom:0.6rem; font-size:0.8rem;">請複製下方完整程式碼，並在您的 Google Apps Script 編輯器中覆蓋原本的內容。我們已為您預先設定了指定的雲端硬碟資料夾 ID <code>1DubgqnsPUdZ5fqXvcByf-2qkzVMxT1zJ</code>！</p>
+                            <textarea id="gas-template-code" readonly rows="12" class="code-font" style="width:100%; box-sizing:border-box; margin-bottom:0.6rem;">// Google Apps Script Web App Template (支援相片直接上傳 Google Drive 資料夾)
+// 部署步驟：
+// 1. 打開您的 Google 試算表，點選「擴充功能」➔「Apps Script」。
+// 2. 將此程式碼全部貼入程式碼編輯器中，覆蓋原本內容。
+// 3. 點選右上角「部署」➔「新增部署」。
+// 4. 類型選擇「網頁應用程式」，「誰有存取權」選擇「任何人」（Anyone）。
+// 5. 複製產生的「網頁應用程式網址」，貼在下方的 API 欄位中！
+
+const FOLDER_ID = '1DubgqnsPUdZ5fqXvcByf-2qkzVMxT1zJ'; // 您的 Google Drive 指定資料夾 ID
+
+function doGet(e) {
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+  var rows = sheet.getDataRange().getValues();
+  var headers = rows[0];
+  var data = [];
+  
+  var dateIdx = headers.indexOf('時間');
+  var locIdx = headers.indexOf('地點');
+  var foodIdx = headers.indexOf('餐廳/美食');
+  var latIdx = headers.indexOf('緯度');
+  if (latIdx === -1) latIdx = headers.indexOf('Latitude');
+  var lngIdx = headers.indexOf('經度');
+  if (lngIdx === -1) lngIdx = headers.indexOf('Longitude');
+  var photoIdx = headers.indexOf('相片');
+  if (photoIdx === -1) photoIdx = headers.indexOf('Photo');
+  
+  for (var i = 1; i < rows.length; i++) {
+    var row = rows[i];
+    if (!row[0]) continue;
+    
+    data.push({
+      index: i - 1,
+      date: formatDate(row[dateIdx]),
+      location: String(row[locIdx] || ''),
+      food: String(row[foodIdx] || ''),
+      lat: row[latIdx] ? parseFloat(row[latIdx]) : '',
+      lng: row[lngIdx] ? parseFloat(row[lngIdx]) : '',
+      photo: photoIdx !== -1 ? String(row[photoIdx] || '') : ''
+    });
+  }
+  
+  return ContentService.createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doPost(e) {
+  try {
+    var params = JSON.parse(e.postData.contents);
+    var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+    var action = params.action;
+    
+    var headers = sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0];
+    var photoColIdx = headers.indexOf('相片');
+    if (photoColIdx === -1) photoColIdx = headers.indexOf('Photo');
+    if (photoColIdx === -1) {
+      sheet.getRange(1, 7).setValue('相片');
+      photoColIdx = 6;
+    }
+    
+    var photoUrl = params.photo || '';
+    if (params.photoBase64 && FOLDER_ID) {
+      photoUrl = uploadToGoogleDrive(params.photoBase64, params.photoName || 'photo.jpg');
+    }
+    
+    var dateVal = params.date || '';
+    var locationVal = params.location || '';
+    var foodVal = params.food || '';
+    var latVal = params.lat || '';
+    var lngVal = params.lng || '';
+    var fullAddressVal = locationVal + ' ' + (foodVal ? foodVal.split(/[，,]/)[0].replace(/（[^）]*）/g, '') : '');
+    
+    if (action === 'add') {
+      var newRow = [dateVal, locationVal, foodVal, fullAddressVal, latVal, lngVal];
+      while (newRow.length < photoColIdx) {
+        newRow.push('');
+      }
+      newRow[photoColIdx] = photoUrl;
+      sheet.appendRow(newRow);
+      
+    } else if (action === 'edit') {
+      var rowIndex = params.index + 2;
+      sheet.getRange(rowIndex, 1).setValue(dateVal);
+      sheet.getRange(rowIndex, 2).setValue(locationVal);
+      sheet.getRange(rowIndex, 3).setValue(foodVal);
+      sheet.getRange(rowIndex, 4).setValue(fullAddressVal);
+      if (latVal) sheet.getRange(rowIndex, 5).setValue(latVal);
+      if (lngVal) sheet.getRange(rowIndex, 6).setValue(lngVal);
+      sheet.getRange(rowIndex, photoColIdx + 1).setValue(photoUrl);
+      
+    } else if (action === 'delete') {
+      var rowIndex = params.index + 2;
+      sheet.deleteRow(rowIndex);
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({ status: 'success' }))
+      .setMimeType(ContentService.MimeType.JSON);
+      
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ status: 'error', message: error.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+function uploadToGoogleDrive(base64Data, filename) {
+  var folder = DriveApp.getFolderById(FOLDER_ID);
+  var rawData = base64Data.split(',')[1] || base64Data;
+  var decoded = Utilities.base64Decode(rawData);
+  var blob = Utilities.newBlob(decoded, MimeType.JPEG, filename);
+  var file = folder.createFile(blob);
+  
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+  return 'https://lh3.googleusercontent.com/d/' + file.getId();
+}
+
+function formatDate(dateObj) {
+  if (!dateObj) return '';
+  if (dateObj instanceof Date) {
+    var yy = String(dateObj.getFullYear()).slice(-2);
+    var mm = String(dateObj.getMonth() + 1);
+    if (mm.length === 1) mm = '0' + mm;
+    var dd = String(dateObj.getDate());
+    if (dd.length === 1) dd = '0' + dd;
+    return yy + '/' + mm + '/' + dd;
+  }
+  return String(dateObj);
+}</textarea>
+                            <button type="button" id="btn-copy-gas-code" class="btn btn-secondary btn-icon" style="height:2.2rem; font-size:0.75rem;">
+                                <i data-lucide="copy"></i> 複製此 Apps Script 程式碼
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="sync-actions">
                         <button id="btn-reset-sheet" class="btn btn-secondary">恢復預設</button>
                         <button id="btn-save-sheet" class="btn btn-primary">儲存並重新同步</button>

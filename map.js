@@ -1,4 +1,4 @@
-﻿/* ==========================================================================
+/* ==========================================================================
    Our Food Map - Leaflet Map Controller (map.js)
    Controls map initialization, tile themes, marker rendering, and polyline animations.
    ========================================================================== */
@@ -756,7 +756,11 @@ function updateMapTrail(records, coordsDb, animatePath = true) {
             
             const mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(rec.location + " " + cleanFood)}`;
             
+            const popupPhotoHtml = rec.photo ? 
+                `<div class="popup-photo-wrapper"><img src="${rec.photo}" class="popup-photo" alt="${cleanFood}"></div>` : '';
+            
             popupContent = `
+                ${popupPhotoHtml}
                 <div class="map-popup-title">${cleanFood}</div>
                 <div class="map-popup-meta">
                     <span>🗓️ ${rec.date}</span>
@@ -793,8 +797,12 @@ function updateMapTrail(records, coordsDb, animatePath = true) {
             });
             
             const mapsLink = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(group.location)}`;
+            const latestRec = sortedGroupRecords[0];
+            const popupPhotoHtml = latestRec.photo ? 
+                `<div class="popup-photo-wrapper"><img src="${latestRec.photo}" class="popup-photo" alt="${group.location}"></div>` : '';
             
             popupContent = `
+                ${popupPhotoHtml}
                 <div class="map-popup-title" style="border-bottom:1px solid rgba(0,0,0,0.08); padding-bottom:0.3rem; margin-bottom:0.3rem;">
                     📍 ${group.location} <span style="font-size:0.75rem; font-weight:normal; color:var(--text-secondary);">(${group.records.length} 次足跡)</span>
                 </div>

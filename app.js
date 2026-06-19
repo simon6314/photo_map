@@ -234,6 +234,7 @@ function parseCSV(text) {
             else if (header === '餐廳/美食') fieldName = 'food';
             else if (header === '緯度' || header.toLowerCase() === 'latitude' || header.toLowerCase() === 'lat') fieldName = 'lat';
             else if (header === '經度' || header.toLowerCase() === 'longitude' || header.toLowerCase() === 'lng' || header.toLowerCase() === 'lon') fieldName = 'lng';
+            else if (header === '相片' || header.toLowerCase() === 'photo' || header.toLowerCase() === 'image') fieldName = 'photo';
             
             record[fieldName] = line[colIdx] ? line[colIdx].trim() : '';
         });
@@ -493,6 +494,9 @@ function renderCardsList(records) {
         const addressText = cleanAddress ? 
             `<div class="card-address"><i data-lucide="compass"></i> <span>${cleanAddress}</span></div>` : '';
             
+        const photoHtml = rec.photo ? 
+            `<div class="card-photo-wrapper"><img src="${rec.photo}" class="card-photo" loading="lazy" alt="${shopName}"></div>` : '';
+            
         // Build card HTML
         const card = document.createElement('div');
         card.className = 'food-card';
@@ -506,6 +510,7 @@ function renderCardsList(records) {
                     </span>
                 </div>
             </div>
+            ${photoHtml}
             <div class="card-content">
                 <h3>${shopName}</h3>
                 ${noteText}
@@ -702,6 +707,33 @@ window.openEditModal = function(recordIndex) {
                 }
             }
 
+            // Pre-fill photo if it exists
+            const photoVal = rec.photo || '';
+            const previewContainer = document.getElementById('form-photo-preview-container');
+            const previewImg = document.getElementById('form-photo-preview');
+            const photoDataInput = document.getElementById('form-photo-data');
+            const photoUrlInput = document.getElementById('form-photo-url');
+            const photoFileInput = document.getElementById('form-photo-file');
+            
+            if (photoFileInput) photoFileInput.value = '';
+            
+            if (photoVal) {
+                if (photoVal.startsWith('data:image/')) {
+                    photoDataInput.value = photoVal;
+                    photoUrlInput.value = '';
+                    previewImg.src = photoVal;
+                } else {
+                    photoDataInput.value = '';
+                    photoUrlInput.value = photoVal;
+                    previewImg.src = photoVal;
+                }
+                previewContainer.classList.remove('hidden');
+            } else {
+                photoDataInput.value = '';
+                photoUrlInput.value = '';
+                previewImg.src = '';
+                previewContainer.classList.add('hidden');
+            }
         }
     } else {
         // Add mode
@@ -714,6 +746,19 @@ window.openEditModal = function(recordIndex) {
         const dd = String(today.getDate()).padStart(2, '0');
         document.getElementById('form-date').value = `${yy}/${mm}/${dd}`;
         document.getElementById('form-coords').value = '';
+        
+        // Reset photo fields
+        const previewContainer = document.getElementById('form-photo-preview-container');
+        const previewImg = document.getElementById('form-photo-preview');
+        const photoDataInput = document.getElementById('form-photo-data');
+        const photoUrlInput = document.getElementById('form-photo-url');
+        const photoFileInput = document.getElementById('form-photo-file');
+        
+        if (photoDataInput) photoDataInput.value = '';
+        if (photoUrlInput) photoUrlInput.value = '';
+        if (photoFileInput) photoFileInput.value = '';
+        if (previewImg) previewImg.src = '';
+        if (previewContainer) previewContainer.classList.add('hidden');
     }
     
     modal.classList.add('active');
@@ -831,10 +876,14 @@ function setupEventListeners() {
         e.preventDefault();
         
         const recordIndex = document.getElementById('form-edit-index').value;
+        const photoData = document.getElementById('form-photo-data').value;
+        const photoUrl = document.getElementById('form-photo-url').value.trim();
+        
         const newRec = {
             date: document.getElementById('form-date').value.trim(),
             location: document.getElementById('form-location').value.trim(),
-            food: document.getElementById('form-food').value.trim()
+            food: document.getElementById('form-food').value.trim(),
+            photo: photoData || photoUrl || ''
         };
         
         // Simple validation check
@@ -928,6 +977,11 @@ function setupEventListeners() {
                 action: recordIndex ? "edit" : "add",
                 index: recordIndex ? parseInt(recordIndex) : undefined
             };
+            
+            if (photoData && photoData.startsWith('data:image/')) {
+                payload.photoBase64 = photoData;
+                payload.photoName = `foodmap_${newRec.date.replace(/\//g, '_')}_${newRec.location}.jpg`;
+            }
             
             try {
                 console.log(`Posting record to Google Sheets via GAS:`, payload);
@@ -1402,13 +1456,164 @@ function setupEventListeners() {
             }, { passive: true });
         }
     }
+    
+    // === Photo Upload & GAS Accordion UI Listeners ===
+    const dragZone = document.getElementById('photo-drag-zone');
+    const photoFileInput = document.getElementById('form-photo-file');
+    const photoUrlInput = document.getElementById('form-photo-url');
+    const photoDataHidden = document.getElementById('form-photo-data');
+    const previewContainer = document.getElementById('form-photo-preview-container');
+    const previewImg = document.getElementById('form-photo-preview');
+    const removePhotoBtn = document.getElementById('btn-remove-photo');
+    
+    if (dragZone && photoFileInput) {
+        dragZone.addEventListener('click', () => photoFileInput.click());
+        
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dragZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dragZone.classList.add('dragover');
+            }, false);
+        });
+        
+        ['dragleave', 'drop'].forEach(eventName => {
+            dragZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                dragZone.classList.remove('dragover');
+            }, false);
+        });
+        
+        dragZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files && files.length > 0) {
+                handleUploadedPhotoFile(files[0]);
+            }
+        });
+        
+        photoFileInput.addEventListener('change', () => {
+            if (photoFileInput.files && photoFileInput.files.length > 0) {
+                handleUploadedPhotoFile(photoFileInput.files[0]);
+            }
+        });
+    }
+    
+    if (photoUrlInput) {
+        photoUrlInput.addEventListener('input', () => {
+            const val = photoUrlInput.value.trim();
+            if (val) {
+                photoDataHidden.value = '';
+                previewImg.src = val;
+                previewContainer.classList.remove('hidden');
+                if (photoFileInput) photoFileInput.value = '';
+            } else if (!photoDataHidden.value) {
+                previewContainer.classList.add('hidden');
+            }
+        });
+    }
+    
+    if (removePhotoBtn) {
+        removePhotoBtn.addEventListener('click', () => {
+            photoDataHidden.value = '';
+            if (photoFileInput) photoFileInput.value = '';
+            if (photoUrlInput) photoUrlInput.value = '';
+            if (previewContainer) previewContainer.classList.add('hidden');
+            if (previewImg) previewImg.src = '';
+        });
+    }
+    
+    // GAS accordion toggle
+    const gasAccordion = document.getElementById('gas-accordion');
+    const gasAccordionToggle = document.getElementById('gas-accordion-toggle');
+    if (gasAccordion && gasAccordionToggle) {
+        gasAccordionToggle.addEventListener('click', () => {
+            gasAccordion.classList.toggle('active');
+        });
+    }
+    
+    // GAS copy code button
+    const btnCopyGasCode = document.getElementById('btn-copy-gas-code');
+    const gasTemplateArea = document.getElementById('gas-template-code');
+    if (btnCopyGasCode && gasTemplateArea) {
+        btnCopyGasCode.addEventListener('click', () => {
+            gasTemplateArea.select();
+            navigator.clipboard.writeText(gasTemplateArea.value);
+            alert("📋 已成功複製最新 Google Apps Script 程式碼！\n您現在可以到試算表的擴充功能中貼上並部署。");
+        });
+    }
+}
+
+/**
+ * Handle uploaded file by showing loading indicator and triggering compression
+ */
+function handleUploadedPhotoFile(file) {
+    if (!file || !file.type.startsWith('image/')) {
+        alert("⚠️ 請選擇正確的圖片檔案！");
+        return;
+    }
+    
+    const dragZone = document.getElementById('photo-drag-zone');
+    const originalText = dragZone.innerHTML;
+    dragZone.innerHTML = '<i data-lucide="loader" class="animate-spin" style="width:1.8rem;height:1.8rem;animation:spin 1s linear infinite;color:var(--primary);"></i><span>圖片處理中...</span>';
+    if (typeof lucide !== 'undefined') lucide.createIcons();
+    
+    compressAndReadImage(file, (base64) => {
+        dragZone.innerHTML = originalText;
+        if (typeof lucide !== 'undefined') lucide.createIcons();
+        
+        document.getElementById('form-photo-data').value = base64;
+        document.getElementById('form-photo-url').value = '';
+        
+        const previewContainer = document.getElementById('form-photo-preview-container');
+        const previewImg = document.getElementById('form-photo-preview');
+        previewImg.src = base64;
+        previewContainer.classList.remove('hidden');
+    });
+}
+
+/**
+ * Compress image using HTML5 canvas
+ */
+function compressAndReadImage(file, callback) {
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = new Image();
+        img.onload = function() {
+            const canvas = document.createElement('canvas');
+            const maxDim = 1000;
+            let width = img.width;
+            let height = img.height;
+            
+            if (width > height) {
+                if (width > maxDim) {
+                    height = Math.round((height * maxDim) / width);
+                    width = maxDim;
+                }
+            } else {
+                if (height > maxDim) {
+                    width = Math.round((width * maxDim) / height);
+                    height = maxDim;
+                }
+            }
+            
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            
+            const base64 = canvas.toDataURL('image/jpeg', 0.7);
+            callback(base64);
+        };
+        img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
 }
 
 /**
  * Generate Raw CSV String representing current unified database
  */
 function generateExportCSVText() {
-    const csvRows = [["時間", "地點", "餐廳/美食", "Full Address", "Latitude", "Longitude"]];
+    const csvRows = [["時間", "地點", "餐廳/美食", "Full Address", "Latitude", "Longitude", "相片"]];
     
     // Sort active database by date descending so the newest records are at the top
     const chronologicalAll = [...activeRecords].sort((a,b) => {
@@ -1444,7 +1649,10 @@ function generateExportCSVText() {
         const rawAddress = `${rec.location} ${rec.food}`;
         const cleanAddress = rawAddress.includes(',') || rawAddress.includes('，') ? `"${rawAddress}"` : rawAddress;
         
-        csvRows.push([rec.date, rec.location, cleanFood, cleanAddress, lat, lng]);
+        // Escape photo field in quotes since base64 data URLs contain commas
+        const cleanPhoto = rec.photo ? `"${rec.photo}"` : '';
+        
+        csvRows.push([rec.date, rec.location, cleanFood, cleanAddress, lat, lng, cleanPhoto]);
     });
     
     const csvContent = csvRows.map(row => row.join(',')).join('\n');
