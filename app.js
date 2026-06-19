@@ -1552,22 +1552,29 @@ function handleUploadedPhotoFile(file) {
         return;
     }
     
-    const dragZone = document.getElementById('photo-drag-zone');
-    const originalText = dragZone.innerHTML;
-    dragZone.innerHTML = '<i data-lucide="loader" class="animate-spin" style="width:1.8rem;height:1.8rem;animation:spin 1s linear infinite;color:var(--primary);"></i><span>圖片處理中...</span>';
-    if (typeof lucide !== 'undefined') lucide.createIcons();
+    const promptDiv = document.getElementById('photo-upload-prompt');
+    const loadingDiv = document.getElementById('photo-upload-loading');
+    
+    if (promptDiv && loadingDiv) {
+        promptDiv.classList.add('hidden');
+        loadingDiv.classList.remove('hidden');
+    }
     
     compressAndReadImage(file, (base64) => {
-        dragZone.innerHTML = originalText;
-        if (typeof lucide !== 'undefined') lucide.createIcons();
+        if (promptDiv && loadingDiv) {
+            promptDiv.classList.remove('hidden');
+            loadingDiv.classList.add('hidden');
+        }
         
         document.getElementById('form-photo-data').value = base64;
         document.getElementById('form-photo-url').value = '';
         
         const previewContainer = document.getElementById('form-photo-preview-container');
         const previewImg = document.getElementById('form-photo-preview');
-        previewImg.src = base64;
-        previewContainer.classList.remove('hidden');
+        if (previewImg && previewContainer) {
+            previewImg.src = base64;
+            previewContainer.classList.remove('hidden');
+        }
     });
 }
 
@@ -1579,32 +1586,51 @@ function compressAndReadImage(file, callback) {
     reader.onload = function(e) {
         const img = new Image();
         img.onload = function() {
-            const canvas = document.createElement('canvas');
-            const maxDim = 1000;
-            let width = img.width;
-            let height = img.height;
-            
-            if (width > height) {
-                if (width > maxDim) {
-                    height = Math.round((height * maxDim) / width);
-                    width = maxDim;
+            try {
+                const canvas = document.createElement('canvas');
+                const maxDim = 1000;
+                let width = img.width;
+                let height = img.height;
+                
+                if (width > height) {
+                    if (width > maxDim) {
+                        height = Math.round((height * maxDim) / width);
+                        width = maxDim;
+                    }
+                } else {
+                    if (height > maxDim) {
+                        width = Math.round((width * maxDim) / height);
+                        height = maxDim;
+                    }
                 }
-            } else {
-                if (height > maxDim) {
-                    width = Math.round((width * maxDim) / height);
-                    height = maxDim;
-                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                
+                const base64 = canvas.toDataURL('image/jpeg', 0.7);
+                callback(base64);
+            } catch (canvasErr) {
+                console.warn("Canvas compression failed, falling back to raw image base64:", canvasErr);
+                callback(e.target.result);
             }
-            
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext('2d');
-            ctx.drawImage(img, 0, 0, width, height);
-            
-            const base64 = canvas.toDataURL('image/jpeg', 0.7);
-            callback(base64);
+        };
+        img.onerror = function(imgErr) {
+            console.warn("Image load failed, falling back to raw FileReader base64:", imgErr);
+            callback(e.target.result);
         };
         img.src = e.target.result;
+    };
+    reader.onerror = function() {
+        console.error("FileReader failed");
+        alert("⚠️ 檔案讀取失敗！");
+        const promptDiv = document.getElementById('photo-upload-prompt');
+        const loadingDiv = document.getElementById('photo-upload-loading');
+        if (promptDiv && loadingDiv) {
+            promptDiv.classList.remove('hidden');
+            loadingDiv.classList.add('hidden');
+        }
     };
     reader.readAsDataURL(file);
 }

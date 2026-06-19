@@ -212,8 +212,14 @@
                     <label>上傳相片 (選填)</label>
                     <div class="photo-upload-container">
                         <div id="photo-drag-zone" class="photo-upload-zone" style="position: relative; overflow: hidden;">
-                            <i data-lucide="camera"></i>
-                            <span>拖曳相片至此，或點擊選擇檔案</span>
+                            <div id="photo-upload-prompt" style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+                                <i data-lucide="camera"></i>
+                                <span>拖曳相片至此，或點擊選擇檔案</span>
+                            </div>
+                            <div id="photo-upload-loading" class="hidden" style="display: flex; flex-direction: column; align-items: center; gap: 0.5rem;">
+                                <i data-lucide="loader" class="animate-spin" style="width:1.8rem;height:1.8rem;color:var(--primary);display:inline-block;animation:spin 1s linear infinite;"></i>
+                                <span>圖片處理中...</span>
+                            </div>
                             <input type="file" id="form-photo-file" accept="image/*" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 5;">
                         </div>
                         <input type="url" id="form-photo-url" placeholder="或貼上外部相片網址 (例如 https://...)">
