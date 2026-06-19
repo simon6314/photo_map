@@ -211,10 +211,10 @@
                 <div class="form-group">
                     <label>上傳相片 (選填)</label>
                     <div class="photo-upload-container">
-                        <div id="photo-drag-zone" class="photo-upload-zone">
+                        <div id="photo-drag-zone" class="photo-upload-zone" style="position: relative; overflow: hidden;">
                             <i data-lucide="camera"></i>
                             <span>拖曳相片至此，或點擊選擇檔案</span>
-                            <input type="file" id="form-photo-file" accept="image/*" class="hidden">
+                            <input type="file" id="form-photo-file" accept="image/*" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; z-index: 5;">
                         </div>
                         <input type="url" id="form-photo-url" placeholder="或貼上外部相片網址 (例如 https://...)">
                         <input type="hidden" id="form-photo-data" value="">

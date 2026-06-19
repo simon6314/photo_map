@@ -1467,7 +1467,7 @@ function setupEventListeners() {
     const removePhotoBtn = document.getElementById('btn-remove-photo');
     
     if (dragZone && photoFileInput) {
-        dragZone.addEventListener('click', () => photoFileInput.click());
+        // Overlay input natively handles clicks, so no programmatic click handler is needed
         
         ['dragenter', 'dragover'].forEach(eventName => {
             dragZone.addEventListener(eventName, (e) => {
