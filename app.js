@@ -116,10 +116,11 @@ async function loadCoordsDb() {
  * Main Data Loader and Renderer
  */
 async function loadDataAndRender() {
-    // 1. Get Google Sheets Apps Script URL (hardcoded has priority, fallback to local storage)
-    const customGasUrl = (HARDCODED_GAS_URL && HARDCODED_GAS_URL !== '您的_GOOGLE_APPS_SCRIPT_API_網址') 
-        ? HARDCODED_GAS_URL 
-        : (safeStorage.getItem(STORAGE_GAS_URL_KEY) || '');
+    // 1. Get Google Sheets Apps Script URL (local storage custom URL has priority, fallback to hardcoded)
+    const inputGasUrl = safeStorage.getItem(STORAGE_GAS_URL_KEY);
+    const customGasUrl = (inputGasUrl && inputGasUrl.trim() !== '') 
+        ? inputGasUrl.trim() 
+        : ((HARDCODED_GAS_URL && HARDCODED_GAS_URL !== '您的_GOOGLE_APPS_SCRIPT_API_網址') ? HARDCODED_GAS_URL : '');
         
     const customSheetUrl = safeStorage.getItem(STORAGE_SHEET_URL_KEY);
     
@@ -594,9 +595,10 @@ function saveOverridesAndRender() {
 window.deleteRecord = async function(recordIndex) {
     if (!confirm("確定要刪除這筆美食足跡嗎？")) return;
     
-    const customGasUrl = (HARDCODED_GAS_URL && HARDCODED_GAS_URL !== '您的_GOOGLE_APPS_SCRIPT_API_網址') 
-        ? HARDCODED_GAS_URL 
-        : (safeStorage.getItem(STORAGE_GAS_URL_KEY) || '');
+    const inputGasUrl = safeStorage.getItem(STORAGE_GAS_URL_KEY);
+    const customGasUrl = (inputGasUrl && inputGasUrl.trim() !== '') 
+        ? inputGasUrl.trim() 
+        : ((HARDCODED_GAS_URL && HARDCODED_GAS_URL !== '您的_GOOGLE_APPS_SCRIPT_API_網址') ? HARDCODED_GAS_URL : '');
         
     if (recordIndex.startsWith('added-')) {
         // Deleting a newly added local record
@@ -959,9 +961,10 @@ function setupEventListeners() {
         }
 
         
-        const customGasUrl = (HARDCODED_GAS_URL && HARDCODED_GAS_URL !== '您的_GOOGLE_APPS_SCRIPT_API_網址') 
-            ? HARDCODED_GAS_URL 
-            : (safeStorage.getItem(STORAGE_GAS_URL_KEY) || '');
+        const inputGasUrl = safeStorage.getItem(STORAGE_GAS_URL_KEY);
+        const customGasUrl = (inputGasUrl && inputGasUrl.trim() !== '') 
+            ? inputGasUrl.trim() 
+            : ((HARDCODED_GAS_URL && HARDCODED_GAS_URL !== '您的_GOOGLE_APPS_SCRIPT_API_網址') ? HARDCODED_GAS_URL : '');
         
         // If we have Apps Script URL, sync to Google Sheet (either ADD or EDIT of a base record)
         if (customGasUrl && (!recordIndex || !recordIndex.startsWith('added-'))) {
@@ -1255,10 +1258,15 @@ function setupEventListeners() {
                 let foundAddress = "";
                 
                 // 1. Try Premium Google Maps Geocoding via Google Apps Script (GAS) if URL is configured!
-                const hasGasUrl = (HARDCODED_GAS_URL && HARDCODED_GAS_URL !== '您的_GOOGLE_APPS_SCRIPT_API_網址' && !HARDCODED_GAS_URL.includes("xxxx"));
+                const inputGasUrl = safeStorage.getItem(STORAGE_GAS_URL_KEY);
+                const customGasUrl = (inputGasUrl && inputGasUrl.trim() !== '') 
+                    ? inputGasUrl.trim() 
+                    : ((HARDCODED_GAS_URL && HARDCODED_GAS_URL !== '您的_GOOGLE_APPS_SCRIPT_API_網址') ? HARDCODED_GAS_URL : '');
+                
+                const hasGasUrl = (customGasUrl && customGasUrl !== '您的_GOOGLE_APPS_SCRIPT_API_網址' && !customGasUrl.includes("xxxx"));
                 if (hasGasUrl) {
                     try {
-                        const gasGeocodeUrl = `${HARDCODED_GAS_URL}?action=geocode&query=${encodeURIComponent(query)}`;
+                        const gasGeocodeUrl = `${customGasUrl}?action=geocode&query=${encodeURIComponent(query)}`;
                         console.log(`Querying premium Google Maps geocoding via Apps Script bridge: ${gasGeocodeUrl}`);
                         const gasRes = await fetch(gasGeocodeUrl);
                         if (gasRes.ok) {
