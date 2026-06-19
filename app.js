@@ -623,27 +623,34 @@ window.deleteRecord = async function(recordIndex) {
                 
                 const response = await fetch(customGasUrl, {
                     method: 'POST',
-                    mode: 'no-cors',
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'text/plain;charset=utf-8'
                     },
                     body: JSON.stringify(payload)
                 });
                 
-                console.log("Delete request sent successfully to Google Sheets!");
-                
-                // Clear any local overrides for this record
-                if (localOverrides.edited[idx]) {
-                    delete localOverrides.edited[idx];
+                const resText = await response.text();
+                let res;
+                try {
+                    res = JSON.parse(resText);
+                } catch(e) {
+                    throw new Error("無法解析伺服器回傳內容：" + resText);
                 }
                 
-                // Fetch live data immediately from Google Sheets
-                await loadDataAndRender();
-                alert("🎉 成功！美食足跡已從您的 Google 試算表中刪除！");
-                return;
+                if (res.status === 'success') {
+                    console.log("Delete request processed successfully!");
+                    if (localOverrides.edited[idx]) {
+                        delete localOverrides.edited[idx];
+                    }
+                    await loadDataAndRender();
+                    alert("🎉 成功！美食足跡已從您的 Google 試算表中刪除！");
+                    return;
+                } else {
+                    throw new Error(res.message || "未知錯誤");
+                }
             } catch (err) {
                 console.error("Failed to delete from Google Sheets:", err);
-                alert("⚠️ 連線更新 Google 試算表失敗，已改為先在您的本機網頁快取中刪除！");
+                alert("⚠️ 連線更新 Google 試算表失敗，已改為先在您的本機網頁快取中刪除！\n\n錯誤原因：" + err.message);
             }
         }
         
@@ -997,33 +1004,46 @@ function setupEventListeners() {
                 console.log(`Posting record to Google Sheets via GAS:`, payload);
                 const response = await fetch(customGasUrl, {
                     method: 'POST',
-                    mode: 'no-cors', // standard for GAS web apps cross-origin posting
                     headers: {
-                        'Content-Type': 'application/json'
+                        'Content-Type': 'text/plain;charset=utf-8'
                     },
                     body: JSON.stringify(payload)
                 });
                 
-                console.log("Record synced successfully to Google Sheets!");
+                const resText = await response.text();
+                console.log("GAS Response Text:", resText);
                 
-                // Clear any local edit override since it is now saved in the sheet
-                if (recordIndex) {
-                    delete localOverrides.edited[parseInt(recordIndex)];
-                    safeStorage.setItem(STORAGE_OVERRIDES_KEY, JSON.stringify(localOverrides));
+                let res;
+                try {
+                    res = JSON.parse(resText);
+                } catch(e) {
+                    throw new Error("無法解析伺服器回傳內容：" + resText);
                 }
                 
-                // Reset save button and close modal
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = originalText;
-                document.getElementById('modal-card').classList.remove('active');
-                
-                // Fetch live data immediately from Google Sheets
-                await loadDataAndRender();
-                alert(recordIndex ? "🎉 成功！美食足跡編輯已同步更新至您的 Google 試算表！" : "🎉 成功！美食足跡已即時同步寫入您的 Google 試算表！");
-                return;
+                if (res.status === 'success') {
+                    console.log("Record synced successfully to Google Sheets!");
+                    
+                    // Clear any local edit override since it is now saved in the sheet
+                    if (recordIndex) {
+                        delete localOverrides.edited[parseInt(recordIndex)];
+                        safeStorage.setItem(STORAGE_OVERRIDES_KEY, JSON.stringify(localOverrides));
+                    }
+                    
+                    // Reset save button and close modal
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                    document.getElementById('modal-card').classList.remove('active');
+                    
+                    // Fetch live data immediately from Google Sheets
+                    await loadDataAndRender();
+                    alert(recordIndex ? "🎉 成功！美食足跡編輯已同步更新至您的 Google 試算表！" : "🎉 成功！美食足跡已即時同步寫入您的 Google 試算表！");
+                    return;
+                } else {
+                    throw new Error(res.message || "未知錯誤");
+                }
             } catch (err) {
                 console.error("Failed to post to Google Sheets:", err);
-                alert("⚠️ 連線更新 Google 試算表失敗，已改為先儲存在您的本機快取中！");
+                alert("⚠️ 連線更新 Google 試算表失敗，已改為先儲存在您的本機快取中！\n\n錯誤原因：" + err.message);
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = originalText;
             }
