@@ -986,6 +986,13 @@ function setupEventListeners() {
                 payload.photoName = `foodmap_${newRec.date.replace(/\//g, '_')}_${newRec.location}.jpg`;
             }
             
+            // Diagnostic Alert to verify client-side payload
+            alert("【除錯資訊】即將送出至試算表：\n" +
+                  "時間: " + payload.date + "\n" +
+                  "地點: " + payload.location + "\n" +
+                  "美食: " + payload.food + "\n" +
+                  "相片資料: " + (payload.photoBase64 ? "有 (" + payload.photoBase64.length + " 字元)" : "無"));
+                  
             try {
                 console.log(`Posting record to Google Sheets via GAS:`, payload);
                 const response = await fetch(customGasUrl, {
