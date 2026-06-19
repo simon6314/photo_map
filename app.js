@@ -59,7 +59,7 @@ const DEFAULT_COORDS_PATH = 'coords_db.json';
 
 // Hardcoded Google Apps Script Web App API URL (for phone-to-sheet sync)
 // 請在此填入您的 Google Apps Script 網頁應用程式網址，格式為：https://script.google.com/macros/s/xxxx/exec
-const HARDCODED_GAS_URL = 'https://script.google.com/macros/s/AKfycbxeaSlr2QHTcciovXCcYp5w-PNTp87G2C8QWpRm9Wbdh6kwzDG046vQpgY7EPhdJm0Z/exec';
+const HARDCODED_GAS_URL = 'https://script.google.com/macros/s/AKfycbwSttcJwcKLrrXOHq0YNrL4QN3kQ9N2usQ3TZR8vzA3PuGv6_eCXw2o6tc9jsEI3iim/exec';
 
 
 // Initialize App
