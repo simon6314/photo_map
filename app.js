@@ -59,7 +59,7 @@ const DEFAULT_COORDS_PATH = 'coords_db.json';
 
 // Hardcoded Google Apps Script Web App API URL (for phone-to-sheet sync)
 // 請在此填入您的 Google Apps Script 網頁應用程式網址，格式為：https://script.google.com/macros/s/xxxx/exec
-const HARDCODED_GAS_URL = 'https://script.google.com/macros/s/AKfycby7sXxg2KboikDmmX_4KAxEds8ChLwGfNayoZmXGojqqmyq0Mo0Ii62Yv3xSvI5ySh4/exec';
+const HARDCODED_GAS_URL = 'https://script.google.com/macros/s/AKfycbwSttcJwcKLrrXOHq0YNrL4QN3kQ9N2usQ3TZR8vzA3PuGv6_eCXw2o6tc9jsEI3iim/exec';
 
 
 // Initialize App
@@ -139,8 +139,10 @@ async function loadDataAndRender() {
         
         if (customGasUrl) {
             try {
-                console.log(`Fetching real-time JSON from GAS API: ${customGasUrl}`);
-                const response = await fetch(customGasUrl);
+                const separator = customGasUrl.includes('?') ? '&' : '?';
+                const gasUrlWithCacheBuster = `${customGasUrl}${separator}_=${Date.now()}`;
+                console.log(`Fetching real-time JSON from GAS API: ${gasUrlWithCacheBuster}`);
+                const response = await fetch(gasUrlWithCacheBuster);
                 baseRecords = await response.json();
                 console.log(`Loaded ${baseRecords.length} real-time records from Google Sheets.`);
                 loadedFromGas = true;
@@ -161,8 +163,10 @@ async function loadDataAndRender() {
                 }
             }
             
-            console.log(`Fetching data from CSV: ${csvUrl}`);
-            const response = await fetch(csvUrl);
+            const separator = csvUrl.includes('?') ? '&' : '?';
+            const csvUrlWithCacheBuster = `${csvUrl}${separator}_=${Date.now()}`;
+            console.log(`Fetching data from CSV: ${csvUrlWithCacheBuster}`);
+            const response = await fetch(csvUrlWithCacheBuster);
             const rawCsvText = await response.text();
             
             // Parse CSV to JSON
@@ -993,12 +997,7 @@ function setupEventListeners() {
                 payload.photoName = `foodmap_${newRec.date.replace(/\//g, '_')}_${newRec.location}.jpg`;
             }
             
-            // Diagnostic Alert to verify client-side payload
-            alert("【除錯資訊】即將送出至試算表：\n" +
-                  "時間: " + payload.date + "\n" +
-                  "地點: " + payload.location + "\n" +
-                  "美食: " + payload.food + "\n" +
-                  "相片資料: " + (payload.photoBase64 ? "有 (" + payload.photoBase64.length + " 字元)" : "無"));
+
                   
             try {
                 console.log(`Posting record to Google Sheets via GAS:`, payload);

@@ -297,14 +297,22 @@
 
 const FOLDER_ID = '1DubgqnsPUdZ5fqXvcByf-2qkzVMxT1zJ'; // 您的 Google Drive 指定資料夾 ID
 
-// 測試用函數：手動執行此函數來啟動 Google Drive 授權 popup
+// 測試用函數：手動執行此函數來啟動 Google Drive 完整寫入授權
 function testAuthorization() {
   Logger.log("正在測試連接資料夾，ID: " + FOLDER_ID);
   try {
     var folder = DriveApp.getFolderById(FOLDER_ID);
-    Logger.log("【授權成功】成功連接到資料夾！名稱為：" + folder.getName());
+    Logger.log("【授權偵測】成功連接到資料夾！名稱為：" + folder.getName());
+    
+    Logger.log("【寫入測試】正在嘗試建立暫存測試檔案以觸發寫入權限...");
+    var testFile = folder.createFile("permissions_test.txt", "這是一個權限測試檔案，可隨時刪除。");
+    Logger.log("【寫入測試】暫存檔案建立成功！ID: " + testFile.getId());
+    
+    Logger.log("【清理測試】正在刪除測試檔案...");
+    testFile.setTrashed(true);
+    Logger.log("【授權成功】完整讀寫權限測試已順利完成！");
   } catch(e) {
-    Logger.log("【授權失敗】連接資料夾時出錯：" + e.toString());
+    Logger.log("【授權失敗】權限測試出錯：" + e.toString());
     throw e;
   }
 }
@@ -424,17 +432,34 @@ function doPost(e) {
 }
 
 function uploadToGoogleDrive(base64Data, filename) {
-  var folder = DriveApp.getFolderById(FOLDER_ID);
-  var rawData = base64Data.split(',')[1] || base64Data;
-  var decoded = Utilities.base64Decode(rawData);
-  var blob = Utilities.newBlob(decoded, MimeType.JPEG, filename);
-  var file = folder.createFile(blob);
-  
-  // 設定為知道連結的人即可檢視，這樣地圖網頁才能順利下載相片展示
-  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-  
-  // 輸出直連網址（專門供 <img> 嵌入）
-  return 'https://lh3.googleusercontent.com/d/' + file.getId();
+  Logger.log("開始 uploadToGoogleDrive...");
+  try {
+    Logger.log("正在取得資料夾, ID: " + FOLDER_ID);
+    var folder = DriveApp.getFolderById(FOLDER_ID);
+    Logger.log("取得資料夾成功: " + folder.getName());
+    
+    Logger.log("正在解碼 Base64 圖片...");
+    var rawData = base64Data.split(',')[1] || base64Data;
+    var decoded = Utilities.base64Decode(rawData);
+    var blob = Utilities.newBlob(decoded, MimeType.JPEG, filename);
+    
+    Logger.log("正在寫入檔案至雲端硬碟...");
+    var file = folder.createFile(blob);
+    Logger.log("檔案寫入成功，ID: " + file.getId());
+    
+    Logger.log("正在嘗試設定公開分享權限...");
+    try {
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+      Logger.log("分享權限設定成功！");
+    } catch(shareErr) {
+      Logger.log("警告：設定分享權限失敗 (可能受 Google 帳號網域限制)，已略過。錯誤: " + shareErr.toString());
+    }
+    
+    return 'https://lh3.googleusercontent.com/d/' + file.getId();
+  } catch(e) {
+    Logger.log("uploadToGoogleDrive 發生錯誤: " + e.toString());
+    throw e;
+  }
 }
 
 function formatDate(dateObj) {
@@ -493,6 +518,6 @@ function formatDate(dateObj) {
     
     <!-- Custom Web App Logic Scripts -->
     <script src="map.js?v=3.8"></script>
-    <script src="app.js?v=3.9"></script>
+    <script src="app.js?v=3.8"></script>
 </body>
 </html>
